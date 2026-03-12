@@ -1,0 +1,58 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python tooling cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.pyre/
+.hypothesis/
+
+# Coverage and build artifacts
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+.tox/
+.nox/
+build/
+dist/
+.eggs/
+*.egg
+*.egg-info/
+pip-wheel-metadata/
+site/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Editors and OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and local temp files
+*.log
+*.tmp
+*.bak
+
+# Run artifacts (ignore by default)
+results/runs/**
+!results/runs/
+
+# Keep curated snapshots trackable
+results/snapshots/**
+!results/snapshots/
+!results/snapshots/**
