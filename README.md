@@ -1,10 +1,10 @@
 # Bcoloring
 
-本仓库用于研究笛卡尔积图上的 B-染色（B-coloring）与 SAT 建模求解。项目采用参数驱动流程：在核心脚本中调整图参数和颜色参数，调用 SAT 求解器后，将结果输出到 `results/runs/`，再人工分析解文件。
+本仓库用于研究笛卡尔积图上的 B-染色（B-coloring）与 B-色数（B-chromatic number）的 SAT 建模求解。项目采用参数驱动流程：在核心脚本中调整笛卡尔积图的图因子长度参数和数量参数（例如奇圈因子$C_{2n+1}$、路因子$P_m$），以及颜色参数（使用$k$种颜色进行染色），调用 SAT 求解器后，将结果输出到 `results/runs/`，再人工分析解文件。
 
 ## 项目简介
 
-- 研究主题：笛卡尔积图 B-染色的可行性判定与构型搜索。
+- 研究主题：笛卡尔积图 B-染色的可行性判定与染色模式搜索。
 - 核心方法：将约束编码为 CNF，调用 CryptoMiniSat5 求解。
 - 当前主线代码：`src/active/general_product_search.py`。
 - 兼容入口：`code/general_product_search.py`（转发到主线脚本，便于旧命令继续使用）。
