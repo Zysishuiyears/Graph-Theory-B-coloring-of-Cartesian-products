@@ -1,6 +1,6 @@
-"""Compatibility shim for the relocated search module.
+"""Compatibility shim for the relocated general_product_decide module.
 
-Execution from this legacy path is forwarded to src/active/general_product_search.py.
+Execution from this legacy path is forwarded to src/active/general_product_decide.py.
 Imports from this legacy path are also forwarded so existing tooling keeps working.
 """
 
@@ -14,12 +14,12 @@ _TARGET = (
     Path(__file__).resolve().parents[1]
     / "src"
     / "active"
-    / "general_product_search.py"
+    / "general_product_decide.py"
 )
 
 
 def _load_target_module():
-    spec = spec_from_file_location("src.active.general_product_search", _TARGET)
+    spec = spec_from_file_location("src.active.general_product_decide", _TARGET)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Cannot load target module: {_TARGET}")
     mod = module_from_spec(spec)
