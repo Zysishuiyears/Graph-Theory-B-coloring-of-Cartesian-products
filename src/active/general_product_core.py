@@ -2,8 +2,9 @@ import os
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from itertools import product
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 
 def env_int(name: str, default: int) -> int:
@@ -43,6 +44,71 @@ class CmsatResult:
     command: List[str]
     elapsed_sec: float
     output: str = ""
+
+
+@dataclass(frozen=True)
+class GraphStats:
+    D: int
+    vertex_count: int
+    edge_count: int
+    max_degree: int
+    c4_count: int
+
+
+class RunLogger:
+    def __init__(
+        self,
+        out_dir: str,
+        progress_name: str = "run_progress.log",
+        echo: bool = True,
+    ):
+        self.path = os.path.join(out_dir, progress_name)
+        self.echo = echo
+        os.makedirs(out_dir, exist_ok=True)
+        with open(self.path, "a", encoding="utf-8"):
+            pass
+
+    def log(self, message: str, echo: Optional[bool] = None) -> None:
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(self.path, "a", encoding="utf-8") as f:
+            f.write(f"[{stamp}] {message}\n")
+        if self.echo if echo is None else echo:
+            print(message, flush=True)
+
+
+def format_elapsed(elapsed_sec: float) -> str:
+    if elapsed_sec < 60:
+        return f"{elapsed_sec:.1f}s"
+
+    total_seconds = int(elapsed_sec)
+    minutes, seconds = divmod(total_seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m{seconds:02d}s"
+
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h{minutes:02d}m{seconds:02d}s"
+
+
+def get_graph_stats(graph: "ProductGraph") -> GraphStats:
+    max_degree = max((len(graph.incident[v]) for v in graph.vertices), default=0)
+    return GraphStats(
+        D=graph.D,
+        vertex_count=graph.VN,
+        edge_count=graph.E,
+        max_degree=max_degree,
+        c4_count=len(graph.C4s),
+    )
+
+
+def graph_summary_line(stats: GraphStats) -> str:
+    return (
+        f"Graph: D={stats.D}, |V|={stats.vertex_count}, |E|={stats.edge_count}, "
+        f"maxdeg={stats.max_degree}, #C4={stats.c4_count}"
+    )
+
+
+def cnf_summary_line(nvars: int, clause_count: int) -> str:
+    return f"CNF: vars={nvars}, clauses={clause_count}"
 
 
 def var_color(e: int, c: int, k: int) -> int:
@@ -284,6 +350,17 @@ def result_from_cmsat_output(
     )
 
 
+def terminate_process(proc: subprocess.Popen, timeout_sec: float = 1.0) -> None:
+    if proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=timeout_sec)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=timeout_sec)
+
+
 def run_cmsat(
     cnf_path: str,
     cmsat_path: str,
@@ -291,6 +368,9 @@ def run_cmsat(
     verb: int = 0,
     need_model: bool = True,
     extra_args: Optional[Sequence[str]] = None,
+    heartbeat_sec: int = 0,
+    heartbeat_cb: Optional[Callable[[float], None]] = None,
+    poll_interval_sec: float = 0.1,
 ) -> CmsatResult:
     command = build_cmsat_command(
         cnf_path,
@@ -302,11 +382,34 @@ def run_cmsat(
     )
     started_at = time.perf_counter()
     try:
-        proc = subprocess.run(command, capture_output=True, text=True, check=False)
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except FileNotFoundError as exc:
         raise RuntimeError(f"Solver not found: {cmsat_path}") from exc
+
+    last_heartbeat = 0.0
+    try:
+        while proc.poll() is None:
+            elapsed_sec = time.perf_counter() - started_at
+            if (
+                heartbeat_cb is not None
+                and heartbeat_sec > 0
+                and elapsed_sec - last_heartbeat >= heartbeat_sec
+            ):
+                heartbeat_cb(elapsed_sec)
+                last_heartbeat = elapsed_sec
+            time.sleep(max(0.05, poll_interval_sec))
+    except KeyboardInterrupt:
+        terminate_process(proc)
+        proc.communicate()
+        raise
+    except Exception:
+        terminate_process(proc)
+        proc.communicate()
+        raise
+
+    stdout, stderr = proc.communicate()
     elapsed_sec = time.perf_counter() - started_at
-    output = proc.stdout + "\n" + proc.stderr
+    output = stdout + "\n" + stderr
     result = result_from_cmsat_output(output, need_model, command, elapsed_sec)
     if result.status == "ERROR":
         raise RuntimeError(f"Cannot parse CryptoMiniSat output.\n{output.strip()}")
