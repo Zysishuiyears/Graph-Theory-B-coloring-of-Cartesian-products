@@ -22,12 +22,16 @@ K_VALUE="$3"
 SESSION_NAME="${4:-decide-$(date +%Y%m%d-%H%M%S)}"
 DUMP_ONE_SOLUTION="${5:-1}"
 
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo "tmux session already exists: $SESSION_NAME" >&2
+    exit 1
+fi
+
 mkdir -p results/runs/_remote_logs
 LOG_FILE="results/runs/_remote_logs/${SESSION_NAME}.log"
 REPO_ROOT="$(pwd)"
 
-CMD=$(printf "cd %q && bash scripts/server/run_decide.sh %q %q %q %q 2>&1 | tee -a %q" \
-    "$REPO_ROOT" "$CYCLES_EXPR" "$PATHS_EXPR" "$K_VALUE" "$DUMP_ONE_SOLUTION" "$LOG_FILE")
+CMD=$(printf "cd %q && bash scripts/server/run_decide.sh %q %q %q %q 2>&1 | tee -a %q"     "$REPO_ROOT" "$CYCLES_EXPR" "$PATHS_EXPR" "$K_VALUE" "$DUMP_ONE_SOLUTION" "$LOG_FILE")
 
 tmux new-session -d -s "$SESSION_NAME" "$CMD"
 

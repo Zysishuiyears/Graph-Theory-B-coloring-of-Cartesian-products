@@ -11,18 +11,43 @@ if [[ ! -f "README.md" || ! -d "src/active" ]]; then
     exit 1
 fi
 
+PYTHON_BIN="${PYTHON_BIN:-}"
+if [[ -z "$PYTHON_BIN" ]]; then
+    if command -v python >/dev/null 2>&1; then
+        PYTHON_BIN="python"
+    elif command -v python3 >/dev/null 2>&1; then
+        PYTHON_BIN="python3"
+    else
+        echo "Neither python nor python3 was found in PATH." >&2
+        exit 1
+    fi
+fi
+
 CYCLES_EXPR="$1"
 PATHS_EXPR="$2"
 K_VALUE="$3"
 DUMP_ONE_SOLUTION="${4:-1}"
+CPU_COUNT="$(nproc)"
+DEFAULT_WORKERS="$(( CPU_COUNT / 3 ))"
+if (( DEFAULT_WORKERS < 1 )); then
+    DEFAULT_WORKERS=1
+elif (( DEFAULT_WORKERS > 4 )); then
+    DEFAULT_WORKERS=4
+fi
 
 export CMSAT_PATH="${CMSAT_PATH:-cryptominisat5}"
 export BCOLOR_RESULTS_ROOT="${BCOLOR_RESULTS_ROOT:-results/runs}"
 export CMSAT_SOLVER_MODE="${CMSAT_SOLVER_MODE:-portfolio}"
-export CMSAT_THREADS="${CMSAT_THREADS:-$(nproc)}"
-export CMSAT_PORTFOLIO_WORKERS="${CMSAT_PORTFOLIO_WORKERS:-4}"
+export CMSAT_THREADS="${CMSAT_THREADS:-$CPU_COUNT}"
+export CMSAT_PORTFOLIO_WORKERS="${CMSAT_PORTFOLIO_WORKERS:-$DEFAULT_WORKERS}"
 export BCOLOR_SYMMETRY_BREAKING="${BCOLOR_SYMMETRY_BREAKING:-1}"
 
+if ! command -v "$CMSAT_PATH" >/dev/null 2>&1; then
+    echo "Solver not found: $CMSAT_PATH" >&2
+    exit 1
+fi
+
+echo "PYTHON_BIN=$PYTHON_BIN"
 echo "CMSAT_PATH=$CMSAT_PATH"
 echo "BCOLOR_RESULTS_ROOT=$BCOLOR_RESULTS_ROOT"
 echo "CMSAT_SOLVER_MODE=$CMSAT_SOLVER_MODE"
@@ -31,7 +56,7 @@ echo "CMSAT_PORTFOLIO_WORKERS=$CMSAT_PORTFOLIO_WORKERS"
 echo "BCOLOR_SYMMETRY_BREAKING=$BCOLOR_SYMMETRY_BREAKING"
 echo "cycles=$CYCLES_EXPR paths=$PATHS_EXPR k=$K_VALUE dump=$DUMP_ONE_SOLUTION"
 
-python - "$CYCLES_EXPR" "$PATHS_EXPR" "$K_VALUE" "$DUMP_ONE_SOLUTION" <<'PY'
+"$PYTHON_BIN" - "$CYCLES_EXPR" "$PATHS_EXPR" "$K_VALUE" "$DUMP_ONE_SOLUTION" <<'PY'
 import ast
 import sys
 

@@ -48,16 +48,24 @@ Run these commands on the server terminal:
 ```bash
 mkdir -p ~/projects
 cd ~/projects
-git clone https://github.com/Zysishuiyears/Graph-Theory-B-coloring-of-Cartesian-products.git bcoloring
+git clone --branch codex/linux-run --single-branch https://github.com/Zysishuiyears/Graph-Theory-B-coloring-of-Cartesian-products.git bcoloring
 cd bcoloring
-git checkout codex/split-decide-search
+```
+
+If you already cloned the repository before, update it with:
+
+```bash
+git fetch origin
+git checkout codex/linux-run
+git pull --ff-only origin codex/linux-run
 ```
 
 ## 4. Python Environment
 
-If conda is available:
+If conda is available, initialize the current shell first and then activate the environment:
 
 ```bash
+source "$(conda info --base)/etc/profile.d/conda.sh"
 conda create -n bcolor python=3.10 -y
 conda activate bcolor
 ```
