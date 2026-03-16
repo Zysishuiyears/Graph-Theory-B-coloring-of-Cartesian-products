@@ -6,9 +6,21 @@
 - 判定核心：`src/active/general_product_decide.py`
 - 搜索核心：`src/active/general_product_search.py`
 - 共享基础层：`src/active/general_product_core.py`
+本仓库用于研究笛卡尔积图上的 B-染色问题，并用 SAT 建模与求解器完成可满足性判定和候选染色搜索。
+
+当前工作流已经拆分为两套核心代码：
+- 判定核心：`src/active/general_product_decide.py`
+- 搜索核心：`src/active/general_product_search.py`
+- 共享基础层：`src/active/general_product_core.py`
 
 ## Project Status
 
+- 主维护判定入口：`src/active/general_product_decide.py`
+- 主维护搜索入口：`src/active/general_product_search.py`
+- 兼容入口：
+  - `code/general_product_decide.py`
+  - `code/general_product_search.py`
+- `src/legacy/` 与 `scripts/legacy/` 为历史归档，不作为当前主维护目标。
 - 主维护判定入口：`src/active/general_product_decide.py`
 - 主维护搜索入口：`src/active/general_product_search.py`
 - 兼容入口：
@@ -24,10 +36,14 @@
 - [CryptoMiniSat5](https://github.com/msoos/cryptominisat)
   - 已在系统 `PATH` 中，或
   - 通过环境变量 `CMSAT_PATH` 显式指定
+  - 已在系统 `PATH` 中，或
+  - 通过环境变量 `CMSAT_PATH` 显式指定
 
+### 2) 运行判定示例
 ### 2) 运行判定示例
 
 ```bash
+python src/active/general_product_decide.py
 python src/active/general_product_decide.py
 ```
 
@@ -38,11 +54,22 @@ python -c "from src.active.general_product_decide import decide_existence_B; dec
 ```
 
 ### 3) 运行搜索示例
+或：
+
+```bash
+python -c "from src.active.general_product_decide import decide_existence_B; decide_existence_B(cycles=[4,6], paths=[], k=5)"
+```
+
+### 3) 运行搜索示例
 
 ```bash
 python -c "from src.active.general_product_search import search_best; search_best(cycles=[4], paths=[], k=4)"
+python -c "from src.active.general_product_search import search_best; search_best(cycles=[4], paths=[], k=4)"
 ```
 
+常规运行输出默认写入 `results/runs/`。重要结果可手工筛选后整理到 `results/snapshots/`。
+
+### 4) 常用环境变量
 常规运行输出默认写入 `results/runs/`。重要结果可手工筛选后整理到 `results/snapshots/`。
 
 ### 4) 常用环境变量
@@ -134,10 +161,13 @@ from src.active.general_product_search import search_best
 ## 依赖说明
 
 ### 主线必需
+### 主线必需
 
+- Python 标准库
 - Python 标准库
 - CryptoMiniSat5
 
+### Legacy 或可视化脚本可选
 ### Legacy 或可视化脚本可选
 
 - `networkx`

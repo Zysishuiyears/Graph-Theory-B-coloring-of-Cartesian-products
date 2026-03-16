@@ -312,8 +312,16 @@ def search_best(cycles: List[int], paths: List[int], k: int = 5):
                 f"[{call_id}] Stop: no new equivalence class for "
                 f"{MAX_NO_NEW_CLASS} consecutive calls. unique={len(seen_keys)}"
             )
+            print(
+                f"[{call_id}] Stop: no new equivalence class for "
+                f"{MAX_NO_NEW_CLASS} consecutive calls. unique={len(seen_keys)}"
+            )
             break
         if no_improve >= MAX_NO_BEST_IMPROVE:
+            print(
+                f"[{call_id}] Stop: no best-score improvement for "
+                f"{MAX_NO_BEST_IMPROVE} consecutive calls. unique={len(seen_keys)}"
+            )
             print(
                 f"[{call_id}] Stop: no best-score improvement for "
                 f"{MAX_NO_BEST_IMPROVE} consecutive calls. unique={len(seen_keys)}"
@@ -326,8 +334,14 @@ def search_best(cycles: List[int], paths: List[int], k: int = 5):
                 f"blocking={len(blocking_clauses)} no_new={no_new} "
                 f"no_improve={no_improve}"
             )
+            print(
+                f"[{call_id}] progress: unique={len(seen_keys)} "
+                f"blocking={len(blocking_clauses)} no_new={no_new} "
+                f"no_improve={no_improve}"
+            )
 
     if best is None:
+        print("No feasible coloring found.")
         print("No feasible coloring found.")
         return None
 
@@ -336,6 +350,7 @@ def search_best(cycles: List[int], paths: List[int], k: int = 5):
     with open(sol_path, "w", encoding="utf-8") as f:
         f.write(f"# Best S={score:.6f}, LayerReg={L:.6f}, TransSym={T:.6f}, Penalty={U:.3f}\n")
         f.write(f"# Graph sizes={graph.sizes}, periodic={graph.periodic}, E={graph.E}\n")
+        f.write("# Format: eid : u -- v : color(1..k)\n")
         f.write("# Format: eid : u -- v : color(1..k)\n")
         for eid, (u, v) in enumerate(graph.edges):
             f.write(f"{eid} : {u} -- {v} : {best_colors[eid] + 1}\n")
