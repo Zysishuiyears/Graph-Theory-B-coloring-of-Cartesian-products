@@ -1,27 +1,6 @@
-import os
 import subprocess
-import time
-from dataclasses import dataclass
-from datetime import datetime
 from itertools import product
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
-
-
-def env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def env_flag(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() not in {"0", "false", "no", "off"}
+from typing import Dict, List, Optional, Sequence, Tuple
 
 
 def build_problem_name(cycles: Sequence[int], paths: Sequence[int], k: int) -> str:
@@ -37,86 +16,8 @@ def make_product_spec(
     return sizes, periodic
 
 
-@dataclass
-class CmsatResult:
-    status: str
-    model: Optional[List[int]]
-    command: List[str]
-    elapsed_sec: float
-    output: str = ""
-
-
-@dataclass(frozen=True)
-class GraphStats:
-    D: int
-    vertex_count: int
-    edge_count: int
-    max_degree: int
-    c4_count: int
-
-
-class RunLogger:
-    def __init__(
-        self,
-        out_dir: str,
-        progress_name: str = "run_progress.log",
-        echo: bool = True,
-    ):
-        self.path = os.path.join(out_dir, progress_name)
-        self.echo = echo
-        os.makedirs(out_dir, exist_ok=True)
-        with open(self.path, "a", encoding="utf-8"):
-            pass
-
-    def log(self, message: str, echo: Optional[bool] = None) -> None:
-        stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(f"[{stamp}] {message}\n")
-        if self.echo if echo is None else echo:
-            print(message, flush=True)
-
-
-def format_elapsed(elapsed_sec: float) -> str:
-    if elapsed_sec < 60:
-        return f"{elapsed_sec:.1f}s"
-
-    total_seconds = int(elapsed_sec)
-    minutes, seconds = divmod(total_seconds, 60)
-    if minutes < 60:
-        return f"{minutes}m{seconds:02d}s"
-
-    hours, minutes = divmod(minutes, 60)
-    return f"{hours}h{minutes:02d}m{seconds:02d}s"
-
-
-def get_graph_stats(graph: "ProductGraph") -> GraphStats:
-    max_degree = max((len(graph.incident[v]) for v in graph.vertices), default=0)
-    return GraphStats(
-        D=graph.D,
-        vertex_count=graph.VN,
-        edge_count=graph.E,
-        max_degree=max_degree,
-        c4_count=len(graph.C4s),
-    )
-
-
-def graph_summary_line(stats: GraphStats) -> str:
-    return (
-        f"Graph: D={stats.D}, |V|={stats.vertex_count}, |E|={stats.edge_count}, "
-        f"maxdeg={stats.max_degree}, #C4={stats.c4_count}"
-    )
-
-
-def cnf_summary_line(nvars: int, clause_count: int) -> str:
-    return f"CNF: vars={nvars}, clauses={clause_count}"
-
-
 def var_color(e: int, c: int, k: int) -> int:
     return e * k + c + 1
-
-
-def var_rep(e: int, c: int, E: int, k: int) -> int:
-    return E * k + e * k + c + 1
 
 
 class ProductGraph:
@@ -156,7 +57,10 @@ class ProductGraph:
         return (a, b) if a <= b else (b, a)
 
     def _step(
-        self, v: Tuple[int, ...], dim: int, delta: int
+        self,
+        v: Tuple[int, ...],
+        dim: int,
+        delta: int,
     ) -> Optional[Tuple[int, ...]]:
         L = self.sizes[dim]
         x = v[dim]
@@ -279,30 +183,7 @@ def write_dimacs(nvars: int, clauses: List[List[int]], path: str) -> None:
             f.write(" ".join(map(str, cls)) + " 0\n")
 
 
-def build_cmsat_command(
-    cnf_path: str,
-    cmsat_path: str,
-    threads: int,
-    verb: int = 0,
-    need_model: bool = True,
-    extra_args: Optional[Sequence[str]] = None,
-) -> List[str]:
-    command = [
-        cmsat_path,
-        "--threads",
-        str(max(1, threads)),
-        "--verb",
-        str(max(0, verb)),
-    ]
-    if extra_args:
-        command.extend(extra_args)
-    if not need_model:
-        command.extend(["--printsol,s", "0"])
-    command.append(cnf_path)
-    return command
-
-
-def parse_model_from_output(output: str) -> List[int]:
+def _parse_model(output: str) -> List[int]:
     model: List[int] = []
     for line in output.splitlines():
         if line.startswith("v ") or line.startswith("V "):
@@ -312,53 +193,8 @@ def parse_model_from_output(output: str) -> List[int]:
                 try:
                     model.append(int(token))
                 except ValueError:
-                    continue
+                    pass
     return model
-
-
-def result_from_cmsat_output(
-    output: str,
-    need_model: bool,
-    command: List[str],
-    elapsed_sec: float,
-) -> CmsatResult:
-    if "UNSAT" in output:
-        return CmsatResult(
-            status="UNSAT",
-            model=None,
-            command=command,
-            elapsed_sec=elapsed_sec,
-            output=output,
-        )
-
-    if "SAT" in output:
-        model = parse_model_from_output(output) if need_model else None
-        return CmsatResult(
-            status="SAT",
-            model=model,
-            command=command,
-            elapsed_sec=elapsed_sec,
-            output=output,
-        )
-
-    return CmsatResult(
-        status="ERROR",
-        model=None,
-        command=command,
-        elapsed_sec=elapsed_sec,
-        output=output,
-    )
-
-
-def terminate_process(proc: subprocess.Popen, timeout_sec: float = 1.0) -> None:
-    if proc.poll() is not None:
-        return
-    proc.terminate()
-    try:
-        proc.wait(timeout=timeout_sec)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait(timeout=timeout_sec)
 
 
 def run_cmsat(
@@ -366,66 +202,42 @@ def run_cmsat(
     cmsat_path: str,
     threads: int,
     verb: int = 0,
-    need_model: bool = True,
     extra_args: Optional[Sequence[str]] = None,
-    heartbeat_sec: int = 0,
-    heartbeat_cb: Optional[Callable[[float], None]] = None,
-    poll_interval_sec: float = 0.1,
-) -> CmsatResult:
-    command = build_cmsat_command(
-        cnf_path,
+) -> Optional[List[int]]:
+    command = [
         cmsat_path,
-        threads,
-        verb=verb,
-        need_model=need_model,
-        extra_args=extra_args,
-    )
-    started_at = time.perf_counter()
+        "-t",
+        str(max(1, threads)),
+        "--verb",
+        str(max(0, verb)),
+    ]
+    if extra_args:
+        command.extend(extra_args)
+    command.append(cnf_path)
+
     try:
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        proc = subprocess.run(command, capture_output=True, text=True, check=False)
     except FileNotFoundError as exc:
         raise RuntimeError(f"Solver not found: {cmsat_path}") from exc
 
-    last_heartbeat = 0.0
-    try:
-        while proc.poll() is None:
-            elapsed_sec = time.perf_counter() - started_at
-            if (
-                heartbeat_cb is not None
-                and heartbeat_sec > 0
-                and elapsed_sec - last_heartbeat >= heartbeat_sec
-            ):
-                heartbeat_cb(elapsed_sec)
-                last_heartbeat = elapsed_sec
-            time.sleep(max(0.05, poll_interval_sec))
-    except KeyboardInterrupt:
-        terminate_process(proc)
-        proc.communicate()
-        raise
-    except Exception:
-        terminate_process(proc)
-        proc.communicate()
-        raise
-
-    stdout, stderr = proc.communicate()
-    elapsed_sec = time.perf_counter() - started_at
-    output = stdout + "\n" + stderr
-    result = result_from_cmsat_output(output, need_model, command, elapsed_sec)
-    if result.status == "ERROR":
+    output = proc.stdout + "\n" + proc.stderr
+    if "UNSAT" in output:
+        return None
+    if "SAT" not in output:
         raise RuntimeError(f"Cannot parse CryptoMiniSat output.\n{output.strip()}")
-    return result
+    return _parse_model(output)
 
 
 def decode_model_to_edge_colors(model: List[int], E: int, k: int) -> List[int]:
     max_color_var = E * k
     positives = {v for v in model if 0 < v <= max_color_var}
 
-    edge_color = [-1] * E
+    edge_colors = [-1] * E
     for e in range(E):
         for c in range(k):
             if var_color(e, c, k) in positives:
-                edge_color[e] = c
+                edge_colors[e] = c
                 break
-        if edge_color[e] < 0:
+        if edge_colors[e] < 0:
             raise RuntimeError("decode failed: some edge has no true color.")
-    return edge_color
+    return edge_colors
